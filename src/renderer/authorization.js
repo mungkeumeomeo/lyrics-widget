@@ -1,14 +1,8 @@
 /*
 ---------- Constants ----------
 */
-let clientId;
-let redirectUri;
-const authorizationEndpoint = "https://accounts.spotify.com/authorize";
-const tokenEndpoint = "https://accounts.spotify.com/api/token";
-const scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing streaming';
-
 const TOKEN_CHECK = 30_000;           // Check token expiry every 30s
-const TOKEN_MIN_TIME_LEFT = 12000000;  // Refresh token if current token expires in less than 2 minutes
+const TOKEN_MIN_TIME_LEFT = 120_000;  // Refresh token if current token expires in less than 2 minutes
 
 // Data structure that manages the current active token, caching it in localStorage
 const currentToken = {
@@ -40,79 +34,34 @@ const redirectToSpotifyAuthorize = async () =>  {
   const codeChallenge = base64encode(hashed);
 
   const state = generateRandomString(16);
-  window.localStorage.setItem('state', state);
-
-  const authUrl = new URL(authorizationEndpoint)
-
-  // Store the code verifier because of redirect; send along with authorization code later
   window.localStorage.setItem('code_verifier', codeVerifier);
-
-  const params =  {
-      response_type: 'code',
-      client_id: clientId,
-      scope,
-      code_challenge_method: 'S256',
-      code_challenge: codeChallenge,
-      redirect_uri: redirectUri,
-      state: state,
-  }
-
-  authUrl.search = new URLSearchParams(params).toString();
-  window.spotify.openAuthWindow(authUrl.toString());
+  window.localStorage.setItem('state', state);
+  
+  await window.spotify.redirectToSpotifyAuthorize(codeChallenge, state);
 }
 
 // Exchange authorization code for an access token by sending a POST request to /api/token
 const getToken = async code => {
   // Stored during authorization request
   const codeVerifier = window.localStorage.getItem('code_verifier');
-
-  const url = "https://accounts.spotify.com/api/token";
-  const payload = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      grant_type: 'authorization_code',
-      code,
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-    }),
-  }
-
-  const response = await fetch(url, payload);
-
-  currentToken.save(await response.json());
+  const response = await window.spotify.getToken(code, codeVerifier);
+  // Update current token
+  currentToken.save(response);
 }
 
 // Refresh token once the current access token expires
 const refreshToken = async () => {
-  const refreshToken = currentToken.refresh_token;
-
-  const response = await fetch(tokenEndpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      grant_type: 'refresh_token',
-      refresh_token: currentToken.refresh_token
-    }),
-  });
-
-  currentToken.save(await response.json());
+  const response = await window.spotify.refreshToken(currentToken.refresh_token);
+  currentToken.save(response);
 }
 
-const startRefreshToken = async code => {
+const startRefreshToken = async () => {
   // Check every 30 seconds
   setInterval(async () => {
     const timeLeft = currentToken.expires - Date.now();
 
     // Refresh if there is less than 2 minutes left
     if (timeLeft < TOKEN_MIN_TIME_LEFT) {
-      console.log("Refreshing token")
       await refreshToken();
     }
   }, TOKEN_CHECK);
@@ -149,8 +98,6 @@ const base64encode = (input) => {
 */
 export const authorize = () => {
   return new Promise(async (resolve, reject) => {
-    clientId = await window.spotify.getClientId();
-    redirectUri = await window.spotify.getRedirectUri();
     loginWithSpotifyClick();
 
     // On redirect, receive authorisation code and state sent by the main process

@@ -2,11 +2,11 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('spotify', {
-  getClientId: () => ipcRenderer.invoke('get-client-id'),
-  getRedirectUri: () => ipcRenderer.invoke('get-redirect-uri'),
   onAuthCode: (callback) => ipcRenderer.on('auth-code', (event, data) => callback(data)),
-  openAuthWindow: (url) => ipcRenderer.send('open-auth-window', url),
   closeAuthWindow: () => ipcRenderer.send('close-auth-window'),
+  redirectToSpotifyAuthorize: (codeChallenge, state) => ipcRenderer.invoke('redirect', codeChallenge, state),
+  getToken: (code, codeVerifier) => ipcRenderer.invoke('get-token', code, codeVerifier),
+  refreshToken: (token) => ipcRenderer.invoke('refresh-token', token),
 })
 
 contextBridge.exposeInMainWorld('pages', {
