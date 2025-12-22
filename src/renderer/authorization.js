@@ -16,6 +16,7 @@ export const currentToken = {
     const expiry = new Date(now.getTime() + (expires_in * 1000));
     window.localStorage.setItem('expires', expiry);
   },
+  // Access and refresh tokens are encrypted into Buffers and stored as base-64 encoded strings
   get access_token() { return window.localStorage.getItem('access_token') || null; },
   get refresh_token() { return window.localStorage.getItem('refresh_token') || null; },
   get expires_in() { 

@@ -19,6 +19,7 @@ html, body {
 
 * {
   box-sizing: border-box;
+  font-family: var(--epilogue-font);
 }
 
 body {
@@ -32,12 +33,18 @@ body {
 }
 
 main {
-  flex: 1;
+  max-height: 100%;
+  max-width: 100%;
+  flex: 0 0 100%;
+  display: flex;
 }
 
 .page {
   height: 100%;
   width: 100%;
+  min-height: 0;
+  flex: 1;
+  app-region: drag;
 }
 
 title-bar {
@@ -65,20 +72,13 @@ title-bar {
 
 /* ---------- Login page ---------- */
 #login-page {
-  height: 100%;
-  width: 100%;
   display: grid;
   grid-template-rows: 1fr 4fr;
   justify-items: center;
   align-items: center;
   background-image: url("./../assets/images/login-background.png");
-  app-region: drag;
   border: 2px solid var(--light-muted-red);
   border-radius: 9px;
-}
-
-#login-page * {
-  font-family: var(--epilogue-font);
 }
 
 #music-note {
@@ -144,4 +144,98 @@ title-bar {
 
 #login-btn:hover .offset {
   top: 0;
+}
+
+/* ---------- Home page ---------- */
+#home-page {
+  background-color: rgb(25, 25, 25);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  p {
+    margin: 0 20px;
+    color: white;
+    max-width: 100%;
+  }
+}
+
+#home-page * {
+  min-height: 0;
+}
+
+#lyrics {
+  flex: 0 1 45%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+}
+
+.lyric {
+  min-width: 0;
+  text-align: center;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+#home-page #lyric-prev, #home-page #lyric-next {
+  color: rgb(160, 160, 160);
+  font-size: 0.8em;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+#home-page #lyric-main {
+  word-wrap: break-word;
+  max-height: 2.2em;
+  overflow: hidden;
+}
+
+@keyframes scroll-x {
+  from {transform: translateX(0);}
+  to {transform: translateX(-50%);}
+}
+
+#home-page #now-playing {
+  max-width: 80%;
+  p {
+    font-size: 0.55em;
+    font-style: italic;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  #song-info-container {
+    display: inline-block;  /* Makes overflow: hidden work */
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: initial;
+    vertical-align: middle;
+  }
+  /* Prevents text from being clipped due to font-style:italic */
+  #song-info-container::after {
+    content: '';
+    padding: 1px;
+  }
+  .scroll-container {
+    display: inline-block;  /* Allows scrolling */
+  }
+  .scroll-x {
+    animation-name: scroll-x;
+    animation-duration: 10s;
+    animation-iteration-count: infinite;  
+    animation-timing-function: linear;
+  }
+}
+
+/* TEMP */
+#home-page #settings {
+  height: 10px;
+}
+
+#home-page #play {
+  height: 30px;
 }
