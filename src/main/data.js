@@ -135,7 +135,7 @@ const waitForLyrics = (trackId, timeout=3000) => {
         clearInterval(intervalId);
         resolve(null);  // Time out: no lyrics
       }
-    }, 50); // Poll every 50ms
+    }, 100); // Poll every 100ms
   });
 };
 

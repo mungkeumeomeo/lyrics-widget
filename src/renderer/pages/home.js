@@ -4,6 +4,12 @@ const songInfo = document.getElementById('song-info');
 const lyricPrev = document.getElementById('lyric-prev');
 const lyricMain = document.getElementById('lyric-main');
 const lyricNext = document.getElementById('lyric-next');
+const unsyncedMsg = document.getElementById('unsynced-msg');
+
+const isPlaying = false;
+const playPauseBtn = document.getElementById('play-pause');
+const playIcon = document.getElementById('play-btn');
+const pauseIcon = document.getElementById('pause-btn');
 
 // Find the lyrics position the user is currently at using a binary search approach
 const findLyricsPosition = (startTimes, currentTime) => {
@@ -41,7 +47,6 @@ const clampSongWidth = () => {
 
   songInfoDup.textContent = '';
 
-  console.log(`${container.scrollWidth} ${container.clientWidth}`)
   if (container.scrollWidth > container.clientWidth) {
     scrollContainer.classList.add('scroll-x');
 
@@ -55,7 +60,7 @@ const clampSongWidth = () => {
 // Loading "animation" while Puppeteer opens the web player
 let count = 0;
 const intervalId = setInterval(() => {
-  lyricMain.textContent = 'Fetching lyrics' + '.'.repeat(count % 4);
+  lyricMain.textContent = 'Connecting to Spotify' + '.'.repeat(count % 4);
   ++count;
 }, 500);
 
@@ -78,7 +83,23 @@ setInterval(async () => {
     // On track change
     if (trackName !== previousTrack) {
       lyrics = await window.spotify.getLyrics(trackId);
-      startTimes = lyrics['lyrics']['lines'].map(line => line['startTimeMs']);
+      unsyncedMsg.style.visibility = 'hidden';
+      if (lyrics) {
+        // If lyrics are unsynced, distribute lyrics equally
+        if (lyrics['lyrics']['syncType'] === 'UNSYNCED') {
+          startTimes = [];
+          const len = lyrics['lyrics']['lines'].length;
+          const step = Math.floor(state['item']['duration_ms'] / len);
+          console.log(len);
+          console.log(step);
+          for (let i = 0; i < len; i++) {
+            startTimes.push(i * step);
+          }
+          unsyncedMsg.style.visibility = 'visible';
+        } else {
+          startTimes = lyrics['lyrics']['lines'].map(line => line['startTimeMs']);
+        }
+      }
       // e.g. "Now playing: Slippery People - Talking Heads";
       songInfo.textContent = `${trackName} - ${artists.join(', ')}`;
       clampSongWidth();
@@ -86,29 +107,24 @@ setInterval(async () => {
     previousTrack = trackName;
 
     if (lyrics) {
-      if (lyrics['lyrics']['syncType'] === 'UNSYNCED') {
-        // Unsynced lyrics
-        lyricMain.textContent = 'lyrics aint synced yet'; 
-      } else {
-        // Synced lyrics
-        let lineIndex = findLyricsPosition(startTimes, state['progress_ms']);
-        lyricPrev.textContent = lineIndex > 0 ? lyrics['lyrics']['lines'][lineIndex - 1]['words'] : '';
-        lyricMain.textContent = lineIndex !== -1 ? lyrics['lyrics']['lines'][lineIndex]['words'] : `\u{266A}`;
-        lyricNext.textContent = lineIndex < lyrics['lyrics']['lines'].length - 1 ? 
-                                lyrics['lyrics']['lines'][lineIndex + 1]['words'] : ``;
-        clampLyricHeight();
-      }
+      console.log(startTimes);
+      let lineIndex = findLyricsPosition(startTimes, state['progress_ms']);
+      lyricPrev.textContent = lineIndex > 0 ? lyrics['lyrics']['lines'][lineIndex - 1]['words'] : '';
+      lyricMain.textContent = lineIndex !== -1 ? lyrics['lyrics']['lines'][lineIndex]['words'] : `\u{266A}`;
+      lyricNext.textContent = lineIndex < lyrics['lyrics']['lines'].length - 1 ? 
+                              lyrics['lyrics']['lines'][lineIndex + 1]['words'] : ``;
+      clampLyricHeight();
     } else { 
       // No lyrics available
-      lyricPrev.textContent = '';
-      lyricMain.textContent = "no lyrics :("; 
+      lyricPrev.textContent = 'No lyrics available for this track.';
+      lyricMain.textContent = '\u{266A}'; 
       lyricNext.textContent = '';
     }
   } else {
     // 204 No Content: No song playing or try relaunching Spotify app
     songInfo.textContent = '-';
     lyricPrev.textContent = '';
-    lyricMain.textContent = 'Start playing something';
+    lyricMain.textContent = '\u{266A} Start playing something \u{266A}';
     lyricNext.textContent = '';
   }
 }, 1000);  // Poll every second to detect song changes
