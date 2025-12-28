@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('spotify', {
 contextBridge.exposeInMainWorld('controls', {
   closeWindow: () => ipcRenderer.send('close-window'),
   minimizeWindow: () => ipcRenderer.send('minimize-window'),
+  setWindowOpacity: (value) => ipcRenderer.send('set-window-opacity', value),
 });
 
 contextBridge.exposeInMainWorld('pages', {

@@ -73,11 +73,17 @@ const loadPage = async (event, relativePath) => {
   return readFile(fullPath, "utf8");
 }
 
+const setWindowOpacity = (event, value) => {
+  if (mainWindow) mainWindow.setOpacity(value);
+}
+
 // Create the main window
 app.whenReady().then(() => {
+
   // Window controls
   ipcMain.on('close-window', closeWindow);
   ipcMain.on('minimize-window', minimizeWindow);
+  ipcMain.on('set-window-opacity', setWindowOpacity);
 
   // Spotify OAuth
   ipcMain.on('close-auth-window', closeAuthWindow);

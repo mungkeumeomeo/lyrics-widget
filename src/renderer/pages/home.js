@@ -21,11 +21,14 @@ const playPauseBtn = document.getElementById('play-pause');
 const prevTrackBtn = document.getElementById('prev-track');
 
 const main = async () => {
-  if (!currentToken.access_token) navigateTo('error');
+  // Styling
+  window.controls.setWindowOpacity(0.9);
+
+  if (!currentToken.access_token) { navigateTo('error'); return; }
 
   // Check if user has Spotify Premium
   const user = await window.api.getCurrentUser(currentToken.access_token);
-  if (!user.ok) navigateTo('error');
+  if (!user.ok) { navigateTo('error'); return; }
   if (user['data']['product'] !== 'premium') {
     disablePlayback();
     hasPremium = false;
@@ -57,7 +60,7 @@ const main = async () => {
       playPauseBtn.innerHTML ='<pause-button />';
       response = await window.api.startPlayback(currentToken.access_token);
     }
-    if (!response.ok) navigateTo('error');
+    if (!response.ok) { navigateTo('error'); return; }
   });
 
   // Skip to previous track

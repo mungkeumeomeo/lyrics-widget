@@ -11,6 +11,8 @@
   --muted-red: rgba(102, 46, 55, 1);
   --light-muted-red: rgba(148, 87, 97, 1);
   --muted-pink: rgba(206, 116, 131, 1);
+  --strong-red: rgba(255, 15, 15, 1);
+  --dark-cool-purple: rgba(6, 0, 73, 0.4);
 }
 
 html, body {
@@ -49,6 +51,7 @@ main {
 
 title-bar {
   width: 100%;
+  display: block;
 }
 
 .title-bar {
@@ -61,13 +64,30 @@ title-bar {
     font-size: 0.7em;
     font-weight: 900;
     margin-left: 5px;
-    width: 25px;
+    width: 20px;
     padding: 2px;
   }
 }
 
 .title-bar #min {
   font-size: 0.8em;
+}
+
+/* Bottom border growing from left to right animation */
+.underline-animation {
+  position: relative;
+}
+.underline-animation::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  background-color: currentColor;
+  transition: width 0.5s ease;
+}
+.underline-animation:hover::after {
+  width: 100%;
 }
 
 /* ---------- Login page ---------- */
@@ -95,13 +115,13 @@ title-bar {
   bottom: 35px;
 }
 
-#login-title-bar button {
+#login-page .title-bar button {
   background-color: transparent;
-  border: 1px solid var(--muted-pink);
+  border: 0;
   color: var(--muted-pink);
 }
 
-#login-title-bar button:hover {
+#login-page .title-bar button:hover {
   background-color: var(--muted-pink);
   color: var(--muted-red);
 }
@@ -114,25 +134,6 @@ title-bar {
   color: var(--orange-cream);
   border: 0;
   margin-top: -30px;
-  /* Bottom border growing from left to right animation */
-  div {
-    position: relative;
-  }
-  div::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 2px;
-    width: 100%;
-    background-color: currentColor;
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 0.5s ease;
-  }
-  div:hover::after {
-    transform: scaleX(1);
-  }
 }
 
 #login-btn .offset {
@@ -144,6 +145,10 @@ title-bar {
 
 #login-btn:hover .offset {
   top: 0;
+}
+
+#login-btn .underline-animation::after {
+  height: 2px;
 }
 
 /* ---------- Home page ---------- */
@@ -258,10 +263,80 @@ title-bar {
 
 /* Glow on hover effect */
 .playback-btn:not(:disabled) svg:hover {
-  filter: drop-shadow(0 0 2px #ffffff);
+  filter: drop-shadow(0 0 3px #ffffff);
 }
 
 /* TEMP */
 #home-page #settings {
   height: 10px;
+}
+
+/* ---------- Error page ---------- */
+#error-page {
+  position: relative;  /* Create positioning context */
+}
+
+/* Using background-image makes the image's colours not render correctly
+for some fuckass reason so the bg img is embedded as HTML */
+#error-page .bg-img {
+  position: absolute;
+  z-index: -1;
+}
+
+#error-page #error-msg {
+  position: absolute;
+  right: 0;
+  bottom: 15%;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: 0.2em;
+  width: 60%;
+  justify-content: center;
+}
+
+#error-page h2 {
+  color: var(--strong-red);
+  font-size: 1.5em;
+  margin: 0;
+}
+
+#error-page #return-to-login {
+  background-color: transparent;
+  border: 0;
+  font-size: 0.8em;
+  color: white;
+  padding: 0;
+  width: fit-content;
+}
+
+#error-page .underline-animation::after {
+  height: 1px;
+}
+
+#error-page p {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 15px 10px;
+  font-size: 4.5em;
+  font-weight: 900;
+  color: white;
+}
+
+#error-page .title-bar {
+  position: relative;
+  top: 0;
+  right: 0;
+}
+
+#error-page .title-bar button {
+  background-color: transparent;
+  border: 0;
+  color: white;
+}
+
+#error-page .title-bar button:hover {
+  background-color: var(--dark-cool-purple);
+  color: rgb(185, 185, 185);
 }
