@@ -102,7 +102,7 @@ const displayLyrics = async () => {
     // On track change
     if (trackName !== previousTrack) {
       lyrics = await window.spotify.getLyrics(trackId);
-      unsyncedMsg.style.visibility = 'hidden';
+      unsyncedMsg.style.display = 'none';
       if (lyrics) {
         // If lyrics are unsynced, distribute lyrics equally
         if (lyrics['lyrics']['syncType'] === 'UNSYNCED') {
@@ -112,7 +112,7 @@ const displayLyrics = async () => {
           for (let i = 0; i < len; i++) {
             startTimes.push(i * step);
           }
-          unsyncedMsg.style.visibility = 'visible';
+          unsyncedMsg.style.display = 'block';
         } else {
           startTimes = lyrics['lyrics']['lines'].map(line => line['startTimeMs']);
         }

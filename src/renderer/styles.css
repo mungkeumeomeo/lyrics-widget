@@ -238,7 +238,9 @@ title-bar {
 
 #unsynced-msg {
   font-size: 0.4em;
-  visibility: hidden;
+  display: none;
+  text-align: center;
+  margin-top: 5px;
 }
 
 #playback-controls {
@@ -269,6 +271,23 @@ title-bar {
 /* TEMP */
 #home-page #settings {
   height: 10px;
+}
+
+#home-page title-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
+#home-page .title-bar button {
+  background-color: transparent;
+  color: rgb(160, 160, 160);
+  border: 0;
+}
+
+#home-page .title-bar button:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
 }
 
 /* ---------- Error page ---------- */
