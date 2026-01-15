@@ -384,7 +384,6 @@ const createFontButtons = () => {
         setTimeout(() => showSelected('font'), 2000);
       }
       window.localStorage.setItem('font', f);
-      controls['font']['selected'] = f;
     });
     fontBtn.addEventListener('mouseenter', () => {
       showSelected('font', f);
@@ -402,6 +401,7 @@ const setFont = (fontId) => {
   // Transform to a CSS-syntax font stack first
   const fontStack = FONTS[fontId]['family'].map(f => `"${f}"`).join(', ');
   homePage.style.setProperty('--font', fontStack);
+  controls['font']['selected'] = fontId;
 };
 
 const showSelected = (type, selected) => {
@@ -432,7 +432,6 @@ const createThemeButtons = () => {
     themeBtn.addEventListener('click', () => {
       setTheme(t);
       window.localStorage.setItem('theme', t);
-      controls['theme']['selected'] = t;
       showSelected('theme');
     });
 
@@ -440,7 +439,7 @@ const createThemeButtons = () => {
   });
 }
 
-const setTheme = async (themeId) => {
+const setTheme = async (themeId) => {  
   homePage.style.setProperty('--theme-text-primary', THEMES[themeId]['text-primary']);
   homePage.style.setProperty('--theme-text-secondary', THEMES[themeId]['text-secondary']);
 
@@ -454,17 +453,23 @@ const setTheme = async (themeId) => {
     const response = await invoke(window.api.getPlaybackState(currentToken.access_token));
     if (!response) return;
     const state = response['data'];
-    if (!state) setTheme('dark');
+    // If there is no song playing, keep the current theme or switch to default theme
+    if (!state) { 
+      setTheme(controls['theme']['selected'] === 'album' ? 'dark' : controls['theme']['selected']);
+      return;
+    }
     const imageUrl = state['item']['album']['images'][0]['url'];
     homePage.style.setProperty('--theme-background-image', `url(${imageUrl})`);
 
     // Text shadow to make lyrics more readable with the background image
     document.getElementById('overlay').style.visibility = 'visible';
+    controls['theme']['selected'] = themeId;
     return;
   }
   homePage.style.setProperty('--theme-background-image', 'none');
   homePage.style.setProperty('--theme-background-color', THEMES[themeId].background);
   document.getElementById('overlay').style.visibility = 'hidden';  // Hide text shadow
+  controls['theme']['selected'] = themeId;
 }
 
 const invoke = async (promise) => {
@@ -488,12 +493,16 @@ const fail = () => {
   // Clear intervals
   if (lyricsIntervalId) clearInterval(lyricsIntervalId);
   stopProgress();
-  playbackBtns.forEach(btn => {
-    // Remove all event listeners by cloning the nodes
-    btn.replaceWith(btn.cloneNode(true)); 
-  });
-  document.querySelectorAll('.font-btn').forEach(btn => {
-    btn.replaceWith(btn.closeNode(true));
+
+  // Remove all event listeners by cloning the nodes
+  const nodes = [
+    ...playbackBtns,
+    ...document.querySelectorAll('.edit-btn'),
+    ...document.querySelectorAll('.font-btn'),
+    ...document.querySelectorAll('.theme-btn'),
+  ];
+  nodes.forEach(node => {
+    node.replaceWith(node.cloneNode(true));
   });
 }
 
