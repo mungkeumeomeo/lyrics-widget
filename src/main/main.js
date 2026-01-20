@@ -26,6 +26,7 @@ const createWindow = () => {
     titleBarStyle: 'hidden',  // Remove the default title bar
     resizable: false,
     transparent: true,
+    alwaysOnTop: true,
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, '../preload/preload.js'),

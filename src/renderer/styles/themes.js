@@ -63,6 +63,6 @@ export const THEMES = {
     'Album Cover',
     'white',
     '#ffffffcc',
-    'white',
+    'transparent',
   ),
 }
