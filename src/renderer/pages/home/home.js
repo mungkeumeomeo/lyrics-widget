@@ -56,9 +56,6 @@ const main = async () => {
     cleanUp();
   });
 
-  const reloadBtn = document.getElementById('reload-btn');
-  reloadBtn.addEventListener('click', () => window.location.reload());
-
   Object.keys(controlObjs).forEach(c => {
     controlObjs[c].applySelection(getSelected(c));
     controlObjs[c].createUI();
@@ -96,12 +93,12 @@ const main = async () => {
     playbackModified = true;
     isPlaying = !isPlaying;
     if (!isPlaying) {
-      playPauseBtn.innerHTML ='<play-button />';
+      playPauseBtn.innerHTML ='<play-icon />';
       playPauseBtn.title = 'Play';
       await invoke(window.api.pausePlayback(currentToken.access_token));
     } else {
       playPauseBtn.title = 'Pause';
-      playPauseBtn.innerHTML ='<pause-button />';
+      playPauseBtn.innerHTML ='<pause-icon />';
       await invoke(window.api.startPlayback(currentToken.access_token));
     }
   });
@@ -380,11 +377,11 @@ const onPlaybackChange = (state) => {
   // Update isPlaying if playback modified using Spotify controls
   if (!playbackModified) isPlaying = state['is_playing'];
   if (isPlaying) {
-    playPauseBtn.innerHTML = '<pause-button />';
+    playPauseBtn.innerHTML = '<pause-icon />';
     playPauseBtn.title = 'Pause';
     startProgress();
   } else {
-    playPauseBtn.innerHTML = '<play-button />';
+    playPauseBtn.innerHTML = '<play-icon />';
     playPauseBtn.title = 'Play';
     stopProgress();
   }

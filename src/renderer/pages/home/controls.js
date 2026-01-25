@@ -81,9 +81,9 @@ class FontControl extends Control {
 
 class ThemeControl extends Control {
   #coverUrl = '';
-  #editOpacityIcon = document.querySelector('opacity-button');
-  #logOutIcon = document.querySelector('log-out-button');
-  #reloadBtn = document.querySelector('reload-button');
+  #editOpacityIcon = document.querySelector('opacity-icon');
+  #logOutIcon = document.querySelector('log-out-icon');
+  #reloadButton = document.querySelector('reload-button');
    
   constructor() {
     super('theme');
@@ -94,7 +94,7 @@ class ThemeControl extends Control {
     Object.keys(THEMES).forEach(t => {
       const themeBtn = document.createElement('button');
 
-      const themeIcon = document.createElement('theme-button');
+      const themeIcon = document.createElement('theme-icon');
       themeIcon.setFill(THEMES[t]['background']);
       themeIcon.setStroke(THEMES[t]['text-primary']);
       themeBtn.appendChild(themeIcon);
@@ -112,7 +112,7 @@ class ThemeControl extends Control {
     homePage.style.setProperty('--theme-text-secondary', THEMES[themeId]['text-secondary']);
 
     // Make the edit theme button match the currently selected theme
-    const editThemeIcon = document.querySelector('theme-button');
+    const editThemeIcon = document.querySelector('theme-icon');
     editThemeIcon.setFill(THEMES[themeId]['background']);
     editThemeIcon.setStroke(THEMES[themeId]['text-primary']);
 
@@ -123,7 +123,7 @@ class ThemeControl extends Control {
     this.#logOutIcon.setFill(THEMES[themeId]['text-secondary']);
 
     // Apply theme to reload button
-    this.#reloadBtn.setFill(THEMES[themeId]['text-secondary']);
+    this.#reloadButton.setFill(THEMES[themeId]['text-secondary']);
 
     // Album theme sets the background image to the album's cover art
     if (themeId === 'album') {
