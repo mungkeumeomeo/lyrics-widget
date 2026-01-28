@@ -6,72 +6,100 @@ const { getCookies } = require('./authorization');
 const api = "https://api.spotify.com/v1";
 let page;
 let lyricsCache = new Map();
-let isLoaded = false;
+
+// Load mutex to make sure that only 1 web player boot is happening at all times
+let webPlayerPromise = null;
+let isRestarting = false;
 
 /* ---------- Get lyrics ---------- */
-const openWebPlayer = async (event) => {
-  if (isLoaded) return;
+const openWebPlayer = async (_event) => {
+  if (webPlayerPromise) return;
 
-  const cookies = await getCookies();
+  webPlayerPromise = await (async () => {
+    try {
+      const cookies = await getCookies();
 
-  const browser = await puppeteer.launch({
-    headless: false,
-    executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  });
-  [page] = await browser.pages();
+      const browser = await puppeteer.launch({
+        headless: false,
+        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      });
+      [page] = await browser.pages();
 
-  await page.goto("https://open.spotify.com");
+      await page.goto("https://open.spotify.com");
 
-  // Transform Electron cookies to Puppeteer cookies
-  const puppeteerCookies = cookies.map(c => ({
-    name: c.name,
-    value: c.value,
-    domain: c.domain,
-    path: c.path || "/",
-    secure: c.secure,
-    httpOnly: c.httpOnly,
-    sameSite: c.sameSite === "no_restriction" ? "None" :
-              c.sameSite === "lax" ? "Lax" :
-              c.sameSite === "strict" ? "Strict" : "Lax"
-  }));
+      // Transform Electron cookies to Puppeteer cookies
+      const puppeteerCookies = cookies.map(c => ({
+        name: c.name,
+        value: c.value,
+        domain: c.domain,
+        path: c.path || "/",
+        secure: c.secure,
+        httpOnly: c.httpOnly,
+        sameSite: c.sameSite === "no_restriction" ? "None" :
+                  c.sameSite === "lax" ? "Lax" :
+                  c.sameSite === "strict" ? "Strict" : "Lax"
+      }));  
 
-  // Set cookies on the page
-  await browser.setCookie(...puppeteerCookies);
+      // Set cookies on the page
+      await browser.setCookie(...puppeteerCookies);
 
-  // Reload to apply session cookies
-  await page.reload({ waitUntil: "networkidle2" });
+      // Reload to apply session cookies
+      await page.reload({ waitUntil: "networkidle2" });
 
-  // Close the 'Allow cookies?' banner
-  try {
-    await page.locator('.onetrust-close-btn-handler.onetrust-close-btn-ui.banner-close-button.ot-close-icon').click();
-  } catch (err) {
-    if (err.name !== 'TimeoutError') {
-      console.error(err);
-    }
-  }
-
-  page.on('response', async res => {
-    const url = res.url();
-    if (url.includes('/color-lyrics/v2/track/')) {
+      // Close the 'Allow cookies?' banner
       try {
-        const data = await res.json();
-        // Get track ID from request URL
-        const trackId = url.match(/track\/([^/?]+)/)?.[1];
-        if (trackId) {
-          lyricsCache.set(trackId, data);
+        await page.locator('.onetrust-close-btn-handler.onetrust-close-btn-ui.banner-close-button.ot-close-icon').click();
+      } catch (err) {
+        if (err.name !== 'TimeoutError') {
+          console.error(err);
         }
-      } catch(err) {
-        console.error(err);
+      } 
+
+      page.on('response', async res => {
+      const url = res.url();
+      if (url.includes('/color-lyrics/v2/track/')) {
+        try {
+          const data = await res.json();
+          // Get track ID from request URL
+          const trackId = url.match(/track\/([^/?]+)/)?.[1];
+          if (trackId) {
+            lyricsCache.set(trackId, data);
+          }
+        } catch(err) {
+          console.error(err);
+        }
       }
+    });
+
+      page.on('close', () => webPlayerPromise = null);
+
+      return page;
+    } catch (err) {
+      webPlayerPromise = null;
+      throw err;
     }
-  });
-
-  page.on('close', () => isLoaded = false);
-
-  isLoaded = true;
+  })();
 };
 
-const getLyrics = async (event, id) => {
+const restartWebPlayer = async () => {
+  if (isRestarting) return;
+  isRestarting = true;
+
+  try {
+    if (page && !page.isClosed()) {
+      await page.close();
+    }
+    if (browser) {
+      await browser.close();
+    }
+    webPlayerPromise = null;
+    await openWebPlayer();
+  } finally {
+    isRestarting = false;
+  }
+}
+
+const getLyrics = async (_event, id) => {
   const lyricsButton = 'button[data-testid="lyrics-button"]';
 
 
@@ -80,12 +108,13 @@ const getLyrics = async (event, id) => {
   try {
     elHandler = await page.waitForSelector(lyricsButton, { timeout: 20_000 });
   } catch {
-    console.log('1');
+    console.log('Unable to find the lyrics button. Possible fetch broadcast error.');
+    // Reload web player if a fetchBroadcastStatus error occurs
+    restartWebPlayer();
     return null;  // Timeout
   }
   const hasLyrics = await elHandler.evaluate(el => !el.disabled);
   if (!hasLyrics) {
-    console.log('2');
     return null;
   }
 

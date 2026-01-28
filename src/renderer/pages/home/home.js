@@ -262,7 +262,6 @@ const displayLyrics = async () => {
       const lyrics = await window.spotify.getLyrics(track.id);
       // Update track's lyrics and compute startTimes
       updateLyrics(track, lyrics);
-      console.log(track);
       resetInfo();  
       // e.g. "Now playing: Slippery People - Talking Heads";
       songInfo.textContent = `${track.name} - ${track.artists.join(', ')}`;
