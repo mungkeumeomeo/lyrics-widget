@@ -55,17 +55,19 @@ const moveToCorner = (_event, corner) => {
   if (!mainWindow) return;
   const display = screen.getDisplayMatching(mainWindow.getBounds());
   const { width, height, x, y } = display.workArea;
+  // Margin so the edges of the window are still visible, esp the progress bar
+  const MARGIN = 2;
 
   let newX = x;
   let newY = y;    
 
   if (corner === 'top-right') {
-    newX = x + width - MAIN_WINDOW_WIDTH;
+    newX = x + width - MAIN_WINDOW_WIDTH - MARGIN;
   } else if (corner === 'bottom-right') {
-    newX = x + width - MAIN_WINDOW_WIDTH;
-    newY = y + height - MAIN_WINDOW_HEIGHT;
+    newX = x + width - MAIN_WINDOW_WIDTH - MARGIN;
+    newY = y + height - MAIN_WINDOW_HEIGHT - MARGIN;
   } else if (corner === 'bottom-left') {
-    newY = y + height - MAIN_WINDOW_HEIGHT;
+    newY = y + height - MAIN_WINDOW_HEIGHT - MARGIN;
   }
 
   mainWindow.setPosition(newX, newY);
