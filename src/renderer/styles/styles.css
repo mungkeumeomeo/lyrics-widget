@@ -212,7 +212,7 @@ title-bar {
   font-size: 0.6em;
 }
 
-#settings-bar button:hover, .theme-btn:hover, #action-bar button:hover {
+.edit-btn:hover, .theme-btn:hover, #action-bar button:hover, .edit-btn:disabled {
   opacity: 0.6;
 }
 

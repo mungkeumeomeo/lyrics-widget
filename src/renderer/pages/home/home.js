@@ -1,50 +1,29 @@
 import { currentToken, startRefreshToken } from '../../authorization.js';
 import { navigateTo } from '../../router.js';
-import { FONTS } from '../../styles/fonts.js';
-import { THEMES } from '../../styles/themes.js';
-import { createTrack, updateLyrics } from './track.js';
+import { createTrack, updateLyrics, currentTrack, setCurrentTrack } from './track.js';
+import { invoke } from './invoke.js';
+import { createInterval, fail, cleanUp } from './lifecycle.js';
 import {
-  CONTROLS,
-  FontControl,
-  ThemeControl,
-  OpacityControl,
-  getSelected,
-  PlaybackControl,
-} from './controls.js';
+  enableEditBtns,
+  disableEditBtns,
+  controlObjs,
+  initControls,
+} from './controls/controls.js';
+import { 
+  checkSubscription, 
+  enablePlayback, 
+  disablePlayback, 
+  checkForPlaybackChange, 
+} from './playback.js';
+import { syncProgress } from './progress-bar.js';
+import { getSelected } from './controls/controlsSelected.js';
+import { resetInfo } from './info-msg.js';
 
-let halted = false;
-
-let currentTrack = createTrack();
-
-let lyricsIntervalId;
 const LYRICS_INTERVAL_MS = 500;
 const songInfo = document.getElementById('song-info');
 const lyricPrev = document.getElementById('lyric-prev');
 const lyricMain = document.getElementById('lyric-main');
 const lyricNext = document.getElementById('lyric-next');
-const infoMsg = document.getElementById('info-msg');
-
-// Playback controls logic
-let isPlaying = false;
-let playbackModified = true;  // Flag if user modified playback using in-app controls (as opposed to Spotify's)
-let hasPremium = true;
-const playbackBtns = document.querySelectorAll('.playback-btn');
-const playPauseBtn = document.getElementById('play-pause');
-const SKIP_MS = 5000;  // Milliseconds to fast forward / backward
-
-// Progress bar logic
-const progressBar = document.getElementById('progress-bar');
-const PROGRESS_BAR_WIDTH = document.getElementById('home-page').offsetWidth;
-let trackProgressMs = 0;     // Current track progress
-let playbackProgressMs = 0;  // Overall playback progress
-let progressId = null;
-
-const controlObjs = {
-  'font': new FontControl(),
-  'theme': new ThemeControl(),
-  'opacity': new OpacityControl(),
-  'playback': new PlaybackControl(),
-}
 
 const main = async () => {
   window.controls.setAlwaysOnTop(true);
@@ -60,10 +39,8 @@ const main = async () => {
   const reloadBtn = document.getElementById('reload-btn');
   reloadBtn.addEventListener('click', () => window.location.reload());
 
-  Object.keys(controlObjs).forEach(c => {
-    controlObjs[c].applySelection(getSelected(c));
-    controlObjs[c].createUI();
-  });
+  // Wire up all components related to font, theme, and opacity controls
+  initControls();
 
   if (!currentToken.access_token) { 
     fail();
@@ -71,12 +48,8 @@ const main = async () => {
   }
   startRefreshToken();
 
-  // Disable playback controls if user does not have Spotify Premium
-  const sub = await getSubscription();
-  if (!sub || sub !== 'premium') {
-    disablePlayback();
-    hasPremium = false;
-  }
+  // Disable playback based on on the user's Spotify subscription
+  checkSubscription();
 
   // Loading "animation" while Puppeteer opens the web player
   let count = 0;
@@ -85,150 +58,14 @@ const main = async () => {
     ++count;
   }, 500);
 
+  disableEditBtns();                     // Disable edit buttons until web player is opened
   disablePlayback();                     // Disable playback buttons until web player is opened
   await window.spotify.openWebPlayer();  // Open web player
   clearInterval(intervalId);             // Stop loading animation
   enablePlayback();                      // Re-enable playback buttons
+  enableEditBtns();                      // Re-enable edit buttons
 
-  lyricsIntervalId = setInterval(displayLyrics, LYRICS_INTERVAL_MS);  // Poll every 500ms to detect song changes
-
-  // Play/pause button logic
-  playPauseBtn.addEventListener('click', async () => {
-    playbackModified = true;
-    isPlaying = !isPlaying;
-    if (!isPlaying) {
-      playPauseBtn.innerHTML ='<play-icon />';
-      playPauseBtn.title = 'Play';
-      await invoke(window.api.pausePlayback(currentToken.access_token));
-    } else {
-      playPauseBtn.title = 'Pause';
-      playPauseBtn.innerHTML ='<pause-icon />';
-      await invoke(window.api.startPlayback(currentToken.access_token));
-    }
-  });
-
-  // Skip to previous track
-  const prevTrackBtn = document.getElementById('prev-track');
-  prevTrackBtn.addEventListener('click', async () => {
-    await invoke(window.api.skipToPrevious(currentToken.access_token));
-    displayLyrics();
-  });
-
-  // Skip to next track
-  const nextTrackBtn = document.getElementById('next-track');
-  nextTrackBtn.addEventListener('click', async () => {
-    await invoke(window.api.skipToNext(currentToken.access_token));
-    displayLyrics();
-  });
-
-  // Rewind
-  const rewindBtn = document.getElementById('rewind');
-  rewindBtn.addEventListener('click', async () => {
-    const response = await invoke(window.api.getPlaybackState(currentToken.access_token));
-    if (!response) return;
-    const state = response['data'];
-    const pos = state['progress_ms'] - SKIP_MS;
-    await invoke(window.api.seekToPosition(currentToken.access_token, Math.max(0, pos)));
-  });
-
-  // Fast forward
-  const fastForwardBtn = document.getElementById('fast-forward');
-  fastForwardBtn.addEventListener('click', async () => {
-    const response = await invoke(window.api.getPlaybackState(currentToken.access_token));
-    if (!response) return;
-    const state = response['data'];
-    const pos = state['progress_ms'] + SKIP_MS;
-    await invoke(window.api.seekToPosition(currentToken.access_token, pos));
-  });
-
-  // Edit buttons in the settings bar
-  const editBtns = document.querySelectorAll('.edit-btn');
-  editBtns.forEach(btn => btn.addEventListener('click', () => {
-    // e.g. 'theme' from 'edit-theme'
-    const controlType = btn.id.slice(5);
-
-    // Toggle the corresponding control type, disable all other
-    Object.keys(CONTROLS).forEach(c => {
-      if (c === controlType) {
-        // Toggle
-        CONTROLS[controlType]['active'] = !CONTROLS[controlType]['active']; 
-      } else {
-        // Disable everything else
-        CONTROLS[c]['active'] = false;  
-      }
-    });
-
-    if (CONTROLS[controlType]['active']) {
-      controlObjs[controlType].display();
-      showSelected(controlType);
-    } else {
-      // If the current controlType is not active => Exiting out of editing mode => Display playback
-      CONTROLS['playback']['active'] = true;
-      controlObjs['playback'].display();
-      resetInfo();
-    }
-  }));
-
-
-  // Font options
-  const fontBtns = document.querySelectorAll('.font-btn');
-  fontBtns.forEach(fontBtn => {
-    const control = controlObjs['font'];
-    const f = fontBtn.id;
-    fontBtn.addEventListener('click', () => {
-      if (f !== getSelected('font')) {
-        document.getElementById(getSelected('font')).classList.remove('underline');
-        fontBtn.classList.add('underline');
-        control.applySelection(f);
-        showInfo('Font change applied !', true);
-        setTimeout(() => showSelected('font'), 2000);
-      }
-    });
-    fontBtn.addEventListener('mouseenter', () => {
-      showSelected('font', f);
-      control.applySelection(f, false);
-    });
-    fontBtn.addEventListener('mouseleave', () => {
-      showSelected('font');
-      control.applySelection(getSelected('font'), false);
-    });
-  });
-
-  // Theme options
-  const themeBtns = document.querySelectorAll('.theme-btn');
-  themeBtns.forEach(themeBtn => {
-    const control = controlObjs['theme'];
-    themeBtn.addEventListener('click', () => {
-      control.applySelection(themeBtn.id);
-      showSelected('theme');
-    });
-  });
-
-  // Opacity slider
-  const opacitySlider = document.getElementById('opacity-slider');
-  opacitySlider.addEventListener('input', () => {
-    controlObjs['opacity'].applySelection(Number(opacitySlider.value) / 100);
-    showSelected('opacity');
-  });
-
-  // Progress bar
-  const progressHitbox = document.getElementById('progress-hitbox');
-  progressHitbox.addEventListener('click', (event) => {
-    if (!progressHitbox.classList.contains('enabled')) return;
-
-    // Temporarily stop animation immediately
-    stopProgress();
-
-    const mouseX = event.clientX;  // Mouse position relative to the viewport
-    const pos = Math.round((mouseX / PROGRESS_BAR_WIDTH) * currentTrack.duration);
-    invoke(window.api.seekToPosition(currentToken.access_token, pos));
-
-    // Sync progress and force manual repaint for a smooth progress bar
-    syncProgress(pos);
-    progressBar.style.width = `${Math.min(pos / currentTrack.duration, 1) * PROGRESS_BAR_WIDTH}px`
-
-    setTimeout(startProgress, 1000);
-  });
+  createInterval(displayLyrics, LYRICS_INTERVAL_MS);  // Poll every 500ms to detect song changes
 };
 
 const displayLyrics = async () => {  
@@ -241,14 +78,8 @@ const displayLyrics = async () => {
     enablePlayback();     // Enable playback buttons
     syncProgress(state['progress_ms']);  // Update progress bar
 
-    // On playback change
-    if (
-      playbackModified ||                // Playback modified using in-app controls
-      isPlaying !== state['is_playing']  // Playback modified using Spotify controls
-    ) {
-      onPlaybackChange(state);
-    } 
-    playbackModified = false;
+    // Check if playback has been changed, either by in-app controls or Spotify controls
+    checkForPlaybackChange(state['is_playing']);
 
     // On track change
     if (track.id !== currentTrack.id) {      
@@ -262,12 +93,12 @@ const displayLyrics = async () => {
       const lyrics = await window.spotify.getLyrics(track.id);
       // Update track's lyrics and compute startTimes
       updateLyrics(track, lyrics);
+      setCurrentTrack(track);
+
       resetInfo();  
       // e.g. "Now playing: Slippery People - Talking Heads";
       songInfo.textContent = `${track.name} - ${track.artists.join(', ')}`;
       clampSongWidth();
-
-      currentTrack = track;
     }
 
     if (currentTrack.lyrics) {
@@ -344,149 +175,5 @@ const clampSongWidth = () => {
     scrollContainer.classList.remove('scroll-x');
   }
 };
-
-const showInfo = (msg, fade=false) => {
-  infoMsg.textContent = msg;
-  if (fade) {
-    infoMsg.classList.remove('fade-out');
-
-    // Force repaint
-    requestAnimationFrame(() => {
-      infoMsg.classList.add('fade-out');
-    });
-
-    infoMsg.classList.remove('fade-out');
-  } else {
-    infoMsg.classList.remove('fade-out');
-  }
-}
-
-const resetInfo = () => { 
-  showInfo(currentTrack.isUnsynced ? "Lyrics aren't synced to the track yet." : "");
-
-  // Check which editing mode user is in and show currently selected option for that mode
-  for (const c of Object.keys(CONTROLS)) {
-    if (CONTROLS[c]['active']) {
-      showSelected(c);
-      return;
-    }
-  }
-}
-
-// Get user's Spotify subscription
-const getSubscription = async () => {
-  const user = await invoke(window.api.getCurrentUser(currentToken.access_token));
-  if (!user) return null;
-  return user['data']['product'];
-}
-
-const onPlaybackChange = (state) => {
-  // Update isPlaying if playback modified using Spotify controls
-  if (!playbackModified) isPlaying = state['is_playing'];
-  if (isPlaying) {
-    playPauseBtn.innerHTML = '<pause-icon />';
-    playPauseBtn.title = 'Pause';
-    startProgress();
-  } else {
-    playPauseBtn.innerHTML = '<play-icon />';
-    playPauseBtn.title = 'Play';
-    stopProgress();
-  }
-};
-
-// Playback buttons enable/disable
-const enablePlayback = () => { 
-  if (hasPremium) {
-    playbackBtns.forEach(btn => btn.disabled = false);
-    setProgressHitbox(true);
-  }
-};
-
-const disablePlayback = () => { 
-  playbackBtns.forEach(btn => btn.disabled = true);
-  setProgressHitbox(false);  // Prevent users from skipping to another position
-}
-
-const startProgress = () => {
-  cancelAnimationFrame(progressId);
-  progressId = requestAnimationFrame(renderProgress);
-};
-
-const stopProgress = () => cancelAnimationFrame(progressId);
-
-// Sync progress every LYRICS_INTERVAL_MS, otherwise estimate progress
-const syncProgress = (progress_ms) => {
-  trackProgressMs = progress_ms;
-  playbackProgressMs = performance.now();
-};
-
-const renderProgress = () => {
-  if (!isPlaying) return;  // Safeguard
-
-  // Estimate progress
-  const elapsed = performance.now() - playbackProgressMs;  
-  const currentMs = trackProgressMs + elapsed;
-  progressBar.style.width = `${Math.min(currentMs / currentTrack.duration, 1) * PROGRESS_BAR_WIDTH}px`;
-
-  progressId = requestAnimationFrame(renderProgress);
-};
-
-const setProgressHitbox = (enabled) => {
-  if (enabled) { document.getElementById('progress-hitbox').classList.add('enabled'); }
-  else { document.getElementById('progress-hitbox').classList.remove('enabled') };
-}
-
-const showSelected = (type, selected) => {
-  // Do not show selected info if user is not in editing mode
-  if (!(CONTROLS[type]['active']) || type === 'playback') return;
-  if (!selected) selected = getSelected(type);
-  if (type === 'font') {
-    showInfo(`Selected font: ${FONTS[selected]['name']}`);
-  } else if (type === 'theme') {
-    showInfo(`Selected theme: ${THEMES[selected]['name']}`);
-  } else if (type === 'opacity') {
-    showInfo(`Opacity: ${Math.round(selected * 100)}%`)
-  }
-}
-
-const invoke = async (promise) => {
-  if (halted) return null;
-
-  const response = await promise;
-  if (!response?.ok) {
-    fail();
-    return null;
-  } else {
-    return response;
-  }
-};
-
-const fail = () => {
-  if (halted) return;
-  halted = true;
-  navigateTo('error', { reload:false, cache:false });
-
-  // Cleanup
-  cleanUp();
-}
-
-const cleanUp = () => {
-  // Clear intervals
-  if (lyricsIntervalId) clearInterval(lyricsIntervalId);
-  stopProgress();
-
-  // Remove all event listeners by cloning the nodes
-  const nodes = [
-    ...playbackBtns,
-    ...document.querySelectorAll('.edit-btn'),
-    ...document.querySelectorAll('.font-btn'),
-    ...document.querySelectorAll('.theme-btn'),
-    document.getElementById('opacity-slider'),
-    ...document.querySelectorAll('#action-bar button'),
-  ];
-  nodes.forEach(node => {
-    node.replaceWith(node.cloneNode(true));
-  });
-}
 
 main();

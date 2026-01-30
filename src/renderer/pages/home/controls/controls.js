@@ -1,29 +1,14 @@
-import { FONTS } from '../../styles/fonts.js';
-import { THEMES } from '../../styles/themes.js';
-
-const CONTROLS = {
-  font: {
-    element: document.getElementById('font-controls'),
-    default: 'epilogue',
-    active: false,
-  },
-  theme: {
-    element: document.getElementById('theme-controls'),
-    default: 'dark',
-    active: false,
-  },
-  opacity: {
-    element: document.getElementById('opacity-controls'),
-    default: 0.9,
-    active: false,
-  },
-  playback: {
-    element: document.getElementById('playback-controls'),
-    active: true,  // Default active control at startup
-  }
-};
+/*
+Font, theme, and background opacity controls
+*/
+import { FONTS } from '../../../styles/fonts.js';
+import { THEMES } from '../../../styles/themes.js';
+import { CONTROLS } from './controlsConfig.js';
+import { getSelected, setSelected } from './controlsSelected.js';
+import { showSelected, resetInfo } from '../info-msg.js';
 
 const homePage = document.getElementById('home-page');
+const editBtns = document.querySelectorAll('.edit-btn');
 
 class Control {
   constructor(type) {
@@ -165,24 +150,97 @@ class PlaybackControl extends Control {
   applySelection(id, recordChange) { return; }
 }
 
-const getSelected = (type) => {
-  const stored = window.localStorage.getItem(type);
-  if (stored !== null) {
-    return type === 'opacity' ? parseFloat(stored) : stored;
-  }
-  return CONTROLS[type]['default'];
+const controlObjs = {
+  'font': new FontControl(),
+  'theme': new ThemeControl(),
+  'opacity': new OpacityControl(),
+  'playback': new PlaybackControl(),
 }
 
-const setSelected = (type, value) => {
-  window.localStorage.setItem(type, value);
+const disableEditBtns = () => editBtns.forEach(btn => btn.disabled = true);
+const enableEditBtns = () => editBtns.forEach(btn => btn.disabled = false);
+
+const initControls = () => {
+  Object.keys(controlObjs).forEach(c => {
+    controlObjs[c].applySelection(getSelected(c));
+    controlObjs[c].createUI();
+  });
+
+  // Edit buttons in settings bar
+  editBtns.forEach(btn => btn.addEventListener('click', () => {
+    // e.g. 'theme' from 'edit-theme'
+    const controlType = btn.id.slice(5);
+
+    // Toggle the corresponding control type, disable all the others
+    Object.keys(CONTROLS).forEach(c => {
+      if (c === controlType) {
+        // Toggle
+        CONTROLS[controlType]['active'] = !CONTROLS[controlType]['active']; 
+      } else {
+        // Disable everything else
+        CONTROLS[c]['active'] = false;  
+      }
+    });
+
+    if (CONTROLS[controlType]['active']) {
+      controlObjs[controlType].display();
+      showSelected(controlType); // GAHHHHHHHHHHHHHHHHHHHHHHHHH
+    } else {
+      // If the current controlType is not active => Exiting out of editing mode => Display playback
+      CONTROLS['playback']['active'] = true;
+      controlObjs['playback'].display();
+      resetInfo(); // GAHHHHHhhhhhhhhhhhhhhhhhHHHHHHHHHHHHHH
+    }
+  }));
+
+  // Font options
+  const fontBtns = document.querySelectorAll('.font-btn');
+  fontBtns.forEach(fontBtn => {
+    const control = controlObjs['font'];
+    const f = fontBtn.id;
+    fontBtn.addEventListener('click', () => {
+      if (f !== getSelected('font')) {
+        document.getElementById(getSelected('font')).classList.remove('underline');
+        fontBtn.classList.add('underline');
+        control.applySelection(f);
+        showInfo('Font change applied !', true);
+        setTimeout(() => showSelected('font'), 2000);
+      }
+    });
+    fontBtn.addEventListener('mouseenter', () => {
+      showSelected('font', f);
+      control.applySelection(f, false);
+    });
+    fontBtn.addEventListener('mouseleave', () => {
+      showSelected('font');
+      control.applySelection(getSelected('font'), false);
+    });
+  });
+
+  // Theme options
+  const themeBtns = document.querySelectorAll('.theme-btn');
+  themeBtns.forEach(themeBtn => {
+    const control = controlObjs['theme'];
+    themeBtn.addEventListener('click', () => {
+      control.applySelection(themeBtn.id);
+      showSelected('theme');
+    });
+  });
+
+  // Opacity slider
+  const opacitySlider = document.getElementById('opacity-slider');
+  opacitySlider.addEventListener('input', () => {
+    controlObjs['opacity'].applySelection(Number(opacitySlider.value) / 100);
+    showSelected('opacity');
+  });
 }
+
+// resetInfo, showSelected, showInfo
 
 export {
-  CONTROLS,
-  Control,
-  FontControl,
-  ThemeControl,
-  OpacityControl,
-  PlaybackControl,
+  controlObjs,
   getSelected,
+  enableEditBtns,
+  disableEditBtns,
+  initControls,
 };

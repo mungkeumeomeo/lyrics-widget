@@ -1,3 +1,7 @@
+/*
+Manages the current track that is being streamed by the user
+*/
+
 export function createTrack(state) {
   return {
     id: state ? state['item']['id'] : '',
@@ -34,3 +38,7 @@ export function updateLyrics(track, lyrics) {
     track.startTimes = [];
   }
 };
+
+export let currentTrack = createTrack();
+
+export const setCurrentTrack = (track) => currentTrack = track;
